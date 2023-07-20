@@ -79,17 +79,49 @@ public class AuthorizeServiceImpl implements AuthorizeService {
 
     @Override
     public String validateAndRegister(String username, String password, String email, String code, String sessionId) {
-        return null;
+        String key = "email:" + sessionId + ":" + email + ":false";
+        if(Boolean.TRUE.equals(template.hasKey(key))) {
+            String s = template.opsForValue().get(key);
+            if(s == null) return "验证码失效，请重新请求";
+            if(s.equals(code)) {
+                Account account = mapper.findAccountByNameOrEmail(username);
+                if(account != null) return "此用户名已被注册，请更换用户名";
+                template.delete(key);
+                password = encoder.encode(password);
+                if (mapper.createAccount(username, password, email) > 0) {
+                    return null;
+                } else {
+                    return "内部错误，请联系管理员";
+                }
+            } else {
+                return "验证码错误，请检查后再提交";
+            }
+        } else {
+            return "请先请求一封验证码邮件";
+        }
     }
 
     @Override
     public String validateOnly(String email, String code, String sessionId) {
-        return null;
+        String key = "email:" + sessionId + ":" + email + ":true";
+        if(Boolean.TRUE.equals(template.hasKey(key))) {
+            String s = template.opsForValue().get(key);
+            if(s == null) return "验证码失效，请重新请求";
+            if(s.equals(code)) {
+                template.delete(key);
+                return null;
+            } else {
+                return "验证码错误，请检查后再提交";
+            }
+        } else {
+            return "请先请求一封验证码邮件";
+        }
     }
 
     @Override
     public boolean resetPassword(String password, String email) {
-        return false;
+        password = encoder.encode(password);
+        return mapper.resetPasswordByEmail(password, email) > 0;
     }
 
 }
